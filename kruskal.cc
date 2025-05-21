@@ -1,137 +1,108 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <random>
 using namespace std;
 
+// Clase para representar una arista
+class Edge {
+public:
+    int u, v, weight;
+
+    Edge(int u, int v, int weight) : u(u), v(v), weight(weight) {}
+};
+
+// Unión-Búsqueda (Union-Find) con compresión de caminos y unión por rango
 class UnionFind {
 private:
-    vector<int> representative, treeHeight;
+    vector<int> parent, rank;
 
 public:
     UnionFind(int n) {
-        representative.resize(n);
-        treeHeight.resize(n, 0);
+        parent.resize(n);
+        rank.resize(n, 0);
         for (int i = 0; i < n; ++i)
-            representative[i] = i;
+            parent[i] = i;
     }
 
-    int findRepresentative(int x) {
-        if (representative[x] != x)
-            representative[x] = findRepresentative(representative[x]);
-        return representative[x];
+    int find(int x) {
+        if (parent[x] != x)
+            parent[x] = find(parent[x]);
+        return parent[x];
     }
 
-    bool joinSets(int x, int y) {
-        int rootX = findRepresentative(x);
-        int rootY = findRepresentative(y);
-        if (rootX == rootY)
+    bool union_sets(int x, int y) {
+        int xr = find(x);
+        int yr = find(y);
+        if (xr == yr)
             return false;
-        if (treeHeight[rootX] < treeHeight[rootY])
-            representative[rootX] = rootY;
-        else if (treeHeight[rootX] > treeHeight[rootY])
-            representative[rootY] = rootX;
+
+        if (rank[xr] < rank[yr])
+            parent[xr] = yr;
+        else if (rank[xr] > rank[yr])
+            parent[yr] = xr;
         else {
-            representative[rootY] = rootX;
-            treeHeight[rootX]++;
+            parent[yr] = xr;
+            rank[xr]++;
         }
+
         return true;
     }
 };
 
+// Clase para representar el grafo
 class Graph {
 private:
-    vector<vector<int>> adjacencyMatrix;
-    vector<int> edgeStart;
-    vector<int> edgeEnd;
-    vector<int> edgeWeight;
+    int V;  // número de vértices
+    vector<Edge> edges;
 
 public:
-    Graph(int n) {
-        adjacencyMatrix = vector<vector<int>>(n, vector<int>(n, -1));
-    }
+    Graph(int V) : V(V) {}
 
     void addEdge(int u, int v, int weight) {
-        adjacencyMatrix[u][v] = weight;
-        adjacencyMatrix[v][u] = weight;
-    }
-
-    void printMatrix() {
-        cout << "Matriz de adyacencia ponderada:\n";
-        for (const auto& row : adjacencyMatrix) {
-            for (int val : row) {
-                if (val == -1) cout << ". ";
-                else cout << val << " ";
-            }
-            cout << endl;
-        }
-    }
-
-    void extractEdges() {
-        int n = adjacencyMatrix.size();
-        edgeStart.clear();
-        edgeEnd.clear();
-        edgeWeight.clear();
-
-        for (int i = 0; i < n; ++i) {
-            for (int j = i + 1; j < n; ++j) {
-                if (adjacencyMatrix[i][j] != -1) {
-                    edgeStart.push_back(i);
-                    edgeEnd.push_back(j);
-                    edgeWeight.push_back(adjacencyMatrix[i][j]);
-                }
-            }
-        }
+        edges.emplace_back(u, v, weight);
     }
 
     void kruskalMST() {
-        extractEdges();
-        int n = adjacencyMatrix.size();
-        int m = edgeStart.size();
-
-        vector<int> edgeIndices(m);
-        for (int i = 0; i < m; ++i) edgeIndices[i] = i;
-
-        sort(edgeIndices.begin(), edgeIndices.end(), [&](int a, int b) {
-            return edgeWeight[a] < edgeWeight[b];
+        // Ordenar aristas por peso ascendente
+        sort(edges.begin(), edges.end(), [](const Edge &a, const Edge &b) {
+            return a.weight < b.weight;
         });
 
-        UnionFind uf(n);
-        int totalMSTWeight = 0;
+        UnionFind uf(V);
+        int mst_weight = 0;
 
         cout << "\nAristas del Árbol de Expansión Mínima (Kruskal):\n";
-        for (int i : edgeIndices) {
-            int u = edgeStart[i];
-            int v = edgeEnd[i];
-            int w = edgeWeight[i];
-
-            if (uf.joinSets(u, v)) {
-                cout << u << " - " << v << " (peso " << w << ")\n";
-                totalMSTWeight += w;
+        for (const Edge &e : edges) {
+            if (uf.union_sets(e.u, e.v)) {
+                cout << e.u << " - " << e.v << " (peso " << e.weight << ")\n";
+                mst_weight += e.weight;
             }
         }
-        cout << "Peso total del MST: " << totalMSTWeight << endl;
+
+        cout << "Peso total del MST: " << mst_weight << endl;
     }
 };
 
+// Ejemplo de uso
 int main() {
-    int numVertices = 11;
-    Graph graph(numVertices);
+    Graph g(6);
+    g.addEdge(0, 1, 4);
+    g.addEdge(0, 2, 4);
+    g.addEdge(1, 2, 2);
+    g.addEdge(1, 0, 4);
+    g.addEdge(2, 0, 4);
+    g.addEdge(2, 1, 2);
+    g.addEdge(2, 3, 3);
+    g.addEdge(2, 5, 2);
+    g.addEdge(2, 4, 4);
+    g.addEdge(3, 2, 3);
+    g.addEdge(3, 4, 3);
+    g.addEdge(4, 2, 4);
+    g.addEdge(4, 3, 3);
+    g.addEdge(5, 2, 2);
+    g.addEdge(5, 4, 3);
 
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_int_distribution<> vertexDist(0, numVertices - 1);
-    uniform_int_distribution<> weightDist(1, 100);
-
-    for (int i = 0; i < 10; i++) {
-        int u = vertexDist(gen);
-        int v = vertexDist(gen);
-        while (v == u) v = vertexDist(gen);
-        graph.addEdge(u, v, weightDist(gen));
-    }
-
-    graph.printMatrix();
-    graph.kruskalMST();
+    g.kruskalMST();
 
     return 0;
 }
